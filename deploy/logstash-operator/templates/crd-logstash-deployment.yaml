@@ -50,6 +50,23 @@ spec:
                         container
                       type: string
                       default: /usr/share/GeoIP
+                metrics:
+                  description: "If defined, logstash pods will start metrics exporter container as sidecar container"
+                  type: object
+                  properties:
+                    configSecret:
+                      description: Secret holding the environment variables needed
+                        for running the container.
+                      type: string
+                    image:
+                      description: Docker image to use as sidecar
+                      type: string
+                      default: kuskoman/logstash-exporter
+                    mountPath:
+                      description: Location of shared directory in logstash
+                        container
+                      type: string
+                      default: /usr/share/metrics
                 image:
                   type: string
                   default: docker.elastic.co/logstash/logstash:7.14.0

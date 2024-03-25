@@ -16,7 +16,7 @@ def create_configmap(name,namespace):
     kopf.adopt(data)
 
     api = kubernetes.client.CoreV1Api()
-        
+
     obj = api.create_namespaced_config_map(
         namespace=namespace,
         body=data,
@@ -39,9 +39,10 @@ def create_statefulset_fn(param, spec, name, namespace, logger, **kwargs):
     resources = yaml.dump(spec.get('resources') ,indent=2)
     persistentVolume = spec.get('persistentVolume')
     for k,v in logstashconfig.items():
-        logstashconfig[k] = v if type(v) in [str,int,float,bool] else yaml.dump(v) 
-    
+        logstashconfig[k] = v if type(v) in [str,int,float,bool] else yaml.dump(v)
+
     geoip = spec.get('geoip')
+    metrics = spec.get('metrics')
 
     configconfigmapname = name+"-logstash-operator-config"
     pipelinesconfigmapname = name+"-logstash-operator-pipelines"
@@ -84,7 +85,7 @@ def create_statefulset_fn(param, spec, name, namespace, logger, **kwargs):
     ## Render statefulset manifest
     TEMPLATE_FILE = "statefulset.yaml.j2"
     template = templateEnv.get_template(TEMPLATE_FILE)
-    text = template.render(name=name, replicas=replicas, pipelines=pipelines, image=image, ports=ports, affinity=affinity, geoip=geoip, secretmounts=secretmounts, config=logstashconfig, resources=resources, persistentVolume=persistentVolume)
+    text = template.render(name=name, replicas=replicas, pipelines=pipelines, image=image, ports=ports, affinity=affinity, geoip=geoip, metrics=metrics, secretmounts=secretmounts, config=logstashconfig, resources=resources, persistentVolume=persistentVolume)
     statefulsetdata = yaml.safe_load(text)
 
     # Create
@@ -123,7 +124,7 @@ def create_statefulset_fn(param, spec, name, namespace, logger, **kwargs):
             logger.info(f"Created Statefulset: {obj.metadata.name}")
 
 
-    ## Update 
+    ## Update
     if param['action'] == 'update':
         ## Update configmap for logstash config
         @kopf.subhandler(id="update-logstash-config")
@@ -135,7 +136,7 @@ def create_statefulset_fn(param, spec, name, namespace, logger, **kwargs):
                 name = configconfigmapname,
                 body=configdata,
             )
-    
+
         ## Update configmap for logstash pipelines config locations
         @kopf.subhandler(id="update-pipelines-config")
         def create_logstash_pipelineconfig(pipelinesdata=pipelinesdata, **_):
@@ -164,7 +165,7 @@ def create_statefulset_fn(param, spec, name, namespace, logger, **kwargs):
         @kopf.subhandler(id="service-"+servicename)
         def create_or_update_service(servicename=servicename,servicedata=servicedata, **_):
             api = kubernetes.client.CoreV1Api()
-            try: 
+            try:
                 api_response = api.read_namespaced_service(servicename, namespace, pretty="true")
             except ApiException as e:
                 if (e.status == 404):
@@ -190,7 +191,7 @@ def create_pipeline_fn(param,spec, name, namespace, logger, **kwargs):
     configmapname=name
     api = kubernetes.client.CoreV1Api()
     if (param['action'] == 'create'):
-        try: 
+        try:
             api_response = api.read_namespaced_config_map(configmapname, namespace, pretty="true")
         except ApiException as e:
             if (e.status == 404):
@@ -198,8 +199,8 @@ def create_pipeline_fn(param,spec, name, namespace, logger, **kwargs):
                 create_configmap(configmapname,namespace)
             else:
                 logger.error("Exception when calling CoreV1Api->read_namespaced_config_map: %s\n" % e)
-    
-    coreapi = kubernetes.client.CoreV1Api()    
+
+    coreapi = kubernetes.client.CoreV1Api()
     customobjectsapi = kubernetes.client.CustomObjectsApi()
 
     customobjectsapi_response = customobjectsapi.list_namespaced_custom_object("logstash-operator.qalo.de","v1",namespace,"logstash-filters", pretty="true", label_selector=spec.get('selector'))
@@ -254,7 +255,7 @@ def create_pipeline_fn(param,spec, name, namespace, logger, **kwargs):
 @kopf.on.delete('logstash-output',param={'type':'output','action':'delete'})
 def pipelineelement_fn(param,spec, name, namespace, logger, **kwargs):
     logger.info(f"{param['action']}: {name}")
- 
+
     customobjectsapi = kubernetes.client.CustomObjectsApi()
     customobjectsapi_response = customobjectsapi.list_namespaced_custom_object("logstash-operator.qalo.de","v1",namespace,"logstash-pipelines", pretty="true")
     for item in customobjectsapi_response['items']:
