@@ -156,3 +156,23 @@ spec:
         - mountPath: {{ geoip['mountPath'] }}
           name: geoip
       {% endif %}
+
+      {% if metrics is defined %}
+      - name: "metrics-exporter"
+        image: {{ metrics['image'] }}
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: LOGSTASH_URL
+            valueFrom:
+              secretKeyRef:
+                name: {{ metrics['configSecret'] }}
+                key: LOGSTASH_URL
+          - name: PORT
+            valueFrom:
+              secretKeyRef:
+                name: {{ metrics['configSecret'] }}
+                key: PORT
+        volumeMounts:
+        - mountPath: {{ metrics['mountPath'] }}
+          name: metrics
+      {% endif %}
